@@ -1,0 +1,22 @@
+# import tool
+# tl=tool.Tool()
+# rel=tl.getPearsonClusterResult()
+# print("----")
+import os,csv
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+import TrafficJamPredict
+obj=TrafficJamPredict.TrafficJamPredict()
+initial=0
+with open("data\\train\\I5-N-1205157.csv", "r") as fd:
+    csv_data = csv.reader(fd)
+    tci = [rows[1] for rows in csv_data]
+    tci = tci[1:]
+    tci = [float(num) for num in tci]
+    for i in range(10):
+            print("outer:"+str(i))
+            obj.train(tci,50,initial,10,"data\\model\\testModel.ckpt","data\\model\\testModel.ckpt")
+            if initial==0:
+                initial=1
+# obj.readDataAndTrain(modelSavePath="data\\model\\",trainDataFilePath="data\\train\\")
+# obj.readDataAndTestAccuracy(modelBasePath="data\\model\\",testDataFilePath="data\\test\\")
