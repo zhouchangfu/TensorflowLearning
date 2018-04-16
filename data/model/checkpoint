@@ -1,2 +1,2 @@
-model_checkpoint_path: "I5-N-1205320.ckpt"
-all_model_checkpoint_paths: "I5-N-1205320.ckpt"
+model_checkpoint_path: "testModel.ckpt"
+all_model_checkpoint_paths: "testModel.ckpt"

@@ -20,7 +20,7 @@ class Tool:
                 return covXY/(np.std(x)*np.std(y));
     def getPearsonClusterResult(self,trainDataFilePath):
         PATH=trainDataFilePath
-        filenames=os.listdir(path=PATH)
+        filenames=os.listdir(PATH)
         data=[]
         for filename in filenames:
             fullPathName=PATH+"\\"+filename
@@ -33,7 +33,7 @@ class Tool:
         return [data,filenames,self.cluster(data,0.85)]
     def getDataAndFilenames(self,testDataFilePath):
         PATH = testDataFilePath
-        filenames = os.listdir(path=PATH)
+        filenames = os.listdir(PATH)
         data = []
         for filename in filenames:
             fullPathName = PATH + "\\" + filename

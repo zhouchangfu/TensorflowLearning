@@ -7,7 +7,7 @@ def getInputLabel(shape):
     return np.ones(dtype=np.float32,shape=shape)
 def getTrainAndTestData(len,fromPath,toTrainPath,toTestPath):
     PATH = fromPath
-    filenames = os.listdir(path=PATH)
+    filenames = os.listdir(PATH)
     data = []
     for filename in filenames:
         fullPathName = PATH + "\\" + filename
@@ -27,7 +27,7 @@ def getTrainAndTestData(len,fromPath,toTrainPath,toTestPath):
             with open(fullTestOPathName, "w+", newline='') as fd:
                 spamwriter = csv.writer(fd)
                 spamwriter.writerows(csvTestData)
-getTrainAndTestData(1000,fromPath='TCI\\',toTrainPath="data\\train\\",toTestPath="data\\test\\")
+#getTrainAndTestData(1000,fromPath='TCI\\',toTrainPath="data\\train\\",toTestPath="data\\test\\")
 
 
 

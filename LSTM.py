@@ -28,12 +28,12 @@ def LSTM():
     # rnn_cell = rnn.BasicLSTMCell(n_hidden)
 
     # generate prediction
-    x=tf.placeholder(shape=[1,5],dtype=tf.float32)
-    y=tf.placeholder(shape=[1,3],dtype=tf.float32)
-    #x=tf.split(x,3,0)
+    x=tf.placeholder(shape=[None,5],dtype=tf.float32)
+    y=tf.placeholder(shape=[None,1],dtype=tf.float32)
+    #x=tf.split(x,5,0)
 
 
-    outputs, states = tf.nn.static_rnn(rnn_cell, [x], dtype=tf.float32)
+    outputs, states = tf.nn.static_rnn(rnn_cell,[x], dtype=tf.float32)
 
     # there are n_input outputs but
     # we only want the last output
@@ -45,21 +45,22 @@ def LSTM():
     # B=tf.Variable(np.random.random(shape=[1,1]))
     #
     # predict=tf.sigmoid(tf.matmul(reshapeRel*W)+B)
-    predict=tf.layers.dense(inputs=outputs[0],units=3)
+    predict=tf.layers.dense(inputs=outputs[0],units=1)
 
     loss=tf.losses.mean_squared_error(predictions=predict,labels=y)
 
 
-    train_step=tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss)
+    train_step=tf.train.AdamOptimizer(learning_rate=0.1).minimize(loss)
     init=tf.global_variables_initializer()
     with tf.Session() as sess:
             sess.run(init)
-            for i in range(5000):
-                    sess.run(train_step,feed_dict={x:np.array([[1,2,3,4,5]]),y:np.array([[6,7,8]])})
+            for i in range(100):
+                    sess.run(train_step,feed_dict={x:np.array([[1,2,3,4,5]]),y:np.array([[6]])})
                     print("loss:")
-                    print(sess.run(loss,feed_dict={x:np.array([[1,2,3,4,5]]),y:np.array([[6,7,8]])}))
+                    print(sess.run(loss,feed_dict={x:np.array([[1,2,3,4,5]]),y:np.array([[6]])}))
             print("predict:")
             print(sess.run(predict,feed_dict={x:np.array([[1,2,3,4,5]])}))
+LSTM()
 
 
 
