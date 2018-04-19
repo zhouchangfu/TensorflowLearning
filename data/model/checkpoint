@@ -1,2 +1,2 @@
-model_checkpoint_path: "I5-N-1205175.csv.ckpt"
-all_model_checkpoint_paths: "I5-N-1205175.csv.ckpt"
+model_checkpoint_path: "SR57-S-1201998.csv.ckpt"
+all_model_checkpoint_paths: "SR57-S-1201998.csv.ckpt"

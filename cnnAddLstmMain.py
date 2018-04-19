@@ -13,9 +13,9 @@ BASETRAINDATAPATH="data\\train"
 BASEMODELPATH="data\\model"
 filenames=os.listdir(BASETRAINDATAPATH)
 iterations=1000
-INPUT_NUM=150
+INPUT_NUM=300
 LSTM_CELL_NUM=2
-OUTPUT_NUM=10
+OUTPUT_NUM=100
 ##############################train##################################
 for filename in filenames:
     filePath=""
