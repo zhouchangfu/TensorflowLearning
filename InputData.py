@@ -27,7 +27,7 @@ def getTrainAndTestData(len,fromPath,toTrainPath,toTestPath):
             with open(fullTestOPathName, "w+", newline='') as fd:
                 spamwriter = csv.writer(fd)
                 spamwriter.writerows(csvTestData)
-#getTrainAndTestData(1000,fromPath='TCI\\',toTrainPath="data\\train\\",toTestPath="data\\test\\")
+#getTrainAndTestData(2000,fromPath='TCI\\',toTrainPath="data\\train\\",toTestPath="data\\test\\")
 
 
 

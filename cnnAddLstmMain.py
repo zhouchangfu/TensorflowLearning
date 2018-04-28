@@ -11,43 +11,47 @@ obj=cnnAddLstm.cnnAddLstm()
 initial=0
 BASETRAINDATAPATH="data\\train"
 BASEMODELPATH="data\\model"
+JAVABASEMODELPATH="data\\graph"
 filenames=os.listdir(BASETRAINDATAPATH)
-iterations=1000
-INPUT_NUM=300
+iterations=1
+INPUT_NUM=500
 LSTM_CELL_NUM=2
-OUTPUT_NUM=100
+OUTPUT_NUM=120
 ##############################train##################################
-for filename in filenames:
-    filePath=""
-    if isWindows():
-        filePath=BASETRAINDATAPATH+"\\"+filename
-    if isLinux():
-        filePath=filePath.replace("\\","/")
-
-    with open(filePath, "r") as fd:
-        csv_data = csv.reader(fd)
-        tci = [rows[1] for rows in csv_data]
-        tci = tci[1:]
-        tci = [float(num) for num in tci]
-        #for i in range(10):
-        modelInputPath = modelOutputPath =""
-        if isWindows():
-            modelInputPath=modelOutputPath=BASEMODELPATH+"\\"+filename+".ckpt"
-        if isLinux():
-            modelInputPath=modelOutputPath=modelOutputPath.replace("\\",'/')
-        obj.train(tci,INPUT_NUM,LSTM_CELL_NUM,OUTPUT_NUM,initial,iterations,modelInputPath,modelOutputPath,0.001)
-
-
-
-
-#############################test##################################
-obj.readDataAndTest(INPUT_NUM,LSTM_CELL_NUM,OUTPUT_NUM,"data\\test","data\\model")
+# for filename in filenames:
+#     filePath=""
+#     if isWindows():
+#         filePath=BASETRAINDATAPATH+"\\"+filename
+#     if isLinux():
+#         filePath=filePath.replace("\\","/")
+#
+#     with open(filePath, "r") as fd:
+#         csv_data = csv.reader(fd)
+#         tci = [rows[1] for rows in csv_data]
+#         tci = tci[1:]
+#         tci = [float(num) for num in tci]
+#         #for i in range(10):
+#         modelInputPath = modelOutputPath =""
+#         javaModelPath=""
+#         if isWindows():
+#             javaModelPath=JAVABASEMODELPATH+"\\"+filename+".pd"
+#             modelInputPath=modelOutputPath=BASEMODELPATH+"\\"+filename+".ckpt"
+#         if isLinux():
+#             javaModelPath=JAVABASEMODELPATH.replace("\\","/")
+#             modelInputPath=modelOutputPath=modelOutputPath.replace("\\",'/')
+#         obj.train(tci,INPUT_NUM,LSTM_CELL_NUM,OUTPUT_NUM,initial,iterations,modelInputPath,modelOutputPath,javaModelPath,0.001)
+#
+#
+#
+#
+# #############################test##################################
+# obj.readDataAndTest(INPUT_NUM,LSTM_CELL_NUM,OUTPUT_NUM,"data\\test","data\\model")
 
 
 
 ##############################simulink##################################
 
-with open("data\\train\\I5-N-1205157.csv", "r") as fd:
+with open("data\\test\\I5-N-1205157.csv", "r") as fd:
     csv_data = csv.reader(fd)
     tci = [rows[1] for rows in csv_data]
     tci = tci[1:]

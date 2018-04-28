@@ -13,7 +13,7 @@ def isWindows():
 def isLinux():
     return "Linux" in platform.system()
 class cnnAddLstm():
-    def train(self,data,inputNum,lstmCellNum,outputNum,state,innerIterations,modelInputPath,modelOutputPath,learningRate):
+    def train(self,data,inputNum,lstmCellNum,outputNum,state,innerIterations,modelInputPath,modelOutputPath,javaModelPath,learningRate):
         tf.reset_default_graph()
         everyLstmCellNums=400
 
@@ -42,7 +42,9 @@ class cnnAddLstm():
 
         outputs, states = tf.nn.static_rnn(rnn_cell, [maxPoolRelFlat], dtype=tf.float32)
 
-        predict = tf.layers.dense(inputs=outputs[0], units=outputNum, activation=tf.nn.sigmoid)
+        predict = tf.layers.dense(inputs=outputs[0], units=outputNum)
+
+        predict=tf.nn.sigmoid(predict,name="predict")
 
         loss = tf.abs(tf.reduce_mean(tf.abs(predict - label)))
         lossOut = tf.abs(tf.reduce_mean(tf.abs(predict - label)))
@@ -87,6 +89,15 @@ class cnnAddLstm():
                 print("global_step:"+str(sess.run(global_step))+"\tlossOut:" + str(retLossValue)+"\tlearningRate:"+str(learningRate)+"\tlossMul:"+str(learningRate*retLossValue))
             saver.save(sess=sess,save_path=modelOutputPath)
             print("\t\t\tmodel save to path:"+modelOutputPath)
+            # output_graph_def = tf.graph_util.convert_variables_to_constants(sess, sess.graph_def,
+            #                                                                 output_node_names=['predict'])
+            # with tf.gfile.FastGFile(javaModelPath, mode='wb') as f:
+            #     f.write(output_graph_def.SerializeToString())
+            builder = tf.saved_model.builder.SavedModelBuilder(javaModelPath)
+            tag_string=javaModelPath.split("\\")[-1]
+            builder.add_meta_graph_and_variables(sess, [tag_string])
+            builder.save()
+
             return retLossValue
 
 
@@ -131,7 +142,9 @@ class cnnAddLstm():
 
         outputs, states = tf.nn.static_rnn(rnn_cell, [maxPoolRelFlat], dtype=tf.float32)
 
-        predict = tf.layers.dense(inputs=outputs[0], units=outputNum, activation=tf.nn.sigmoid)
+        predict = tf.layers.dense(inputs=outputs[0], units=outputNum)
+
+        predict = tf.nn.sigmoid(predict, name="predict")
 
         lossOut = tf.abs(tf.reduce_mean(tf.abs(predict - label)))
         init = tf.global_variables_initializer()
@@ -199,7 +212,9 @@ class cnnAddLstm():
 
         outputs, states = tf.nn.static_rnn(rnn_cell, [maxPoolRelFlat], dtype=tf.float32)
 
-        predict = tf.layers.dense(inputs=outputs[0], units=outputNum, activation=tf.nn.sigmoid)
+        predict = tf.layers.dense(inputs=outputs[0], units=outputNum)
+
+        predict = tf.nn.sigmoid(predict, name="predict")
 
 
         init = tf.global_variables_initializer()
