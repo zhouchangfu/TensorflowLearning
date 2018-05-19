@@ -3,10 +3,161 @@ import tensorflow as tf
 import InputData as inda
 import Kernel as kernel
 import numpy as np
+import os,csv
 import tool
+import loss as lossObj
 import matplotlib.pyplot as plt
 import datetime
 class TrafficJamPredict:
+    def train_1(self,data,inputNum,convnum,hiddennum,outputNum,state,iterations,modelInputPath,modelOutputFile,learning_rate):
+            '''
+                input:
+                data: one-denmension list
+                col: input data length
+                state: value must 0 or 1 0:initial train the network 1 oppsite
+                iterations: train times
+                modelPath:nn model network structure exist path
+                output:
+                one value
+                '''
+            tf.reset_default_graph()
+            row = 1
+            channel = 1
+            HIDDEN_CELL_NUM=400
+
+            # label container
+            label = tf.placeholder(tf.float32, shape=[None, outputNum],name="label")
+            predictValue = []
+            # input data container
+            input = tf.placeholder(tf.float32, shape=[None, row, inputNum, channel], name='input')
+
+            filterKernel = kernel.averageFilter(shape=[1, 3, 1, 1]);
+
+            # convlution
+            convInput=input;
+            convOutput=input;
+            for i in range(convnum):
+                convOutput = tf.nn.conv2d(convInput, filter=filterKernel, strides=[1, 1, 1, 1], data_format='NHWC',
+                                         padding='SAME')
+                convInput=convOutput
+
+            # pooling
+            maxpoolRel = tf.nn.max_pool(convOutput, ksize=[1, 1, 3, 1], strides=[1, 1, 3, 1], padding='SAME',
+                                        data_format='NHWC')
+            deminsion = maxpoolRel.shape.as_list()
+
+            # reshape
+            maxPoolFlat = tf.reshape(maxpoolRel, shape=[-1, deminsion[1] * deminsion[2] * deminsion[3]])
+
+            # Hidden layer
+            hiddenInput=maxPoolFlat
+            hiddenOutput=maxPoolFlat
+            for i in range(hiddennum):
+                hiddenOutput = tf.layers.dense(hiddenInput, HIDDEN_CELL_NUM)
+                hiddenInput=hiddenOutput
+
+            # output layer
+            predict = tf.layers.dense(hiddenOutput, outputNum, tf.nn.tanh)
+
+            predict=tf.nn.tanh(predict,name="predict")
+
+            # define the loss function
+            MAE=lossObj.Loss().mae(predict,label);
+            MAPE=lossObj.Loss().mape(predict,label);
+            RMSE=lossObj.Loss().rmse(predict,label);
+            loss = tf.abs(tf.reduce_mean(tf.abs(predict - label)))
+            lossOut = tf.abs(tf.reduce_mean(tf.abs(predict - label)),name="abs_mean_loss")
+            # loss=tf.losses.mean_squared_error(labels=label,predictions=rel)
+
+            # set the train algorithm
+            global_step = tf.Variable(0)
+
+            learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=len(data) / inputNum,
+                                                       decay_rate=0.998,
+                                                       staircase=True)
+            train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss=loss,
+                                                                                      global_step=global_step)
+            # train_step=tf.train.AdadeltaOptimizer(learning_rate=0.1).minimize(loss=loss)
+
+            # init all the weight value
+            init = tf.global_variables_initializer()
+
+            # begin training process
+            with tf.Session() as sess:
+
+
+                sess.run(init)
+                # 将图形、训练过程等数据合并在一起
+                # tf.summary.scalar("loss", loss[0][0])
+                # tf.summary.scalar("lossOut", lossOut[0][0])
+                # writer = tf.summary.FileWriter("G:/GraduationDesignModelData/logs/", sess.graph)
+                # merged = tf.summary.merge_all()
+                # restore the all kinds of network weights to the cnn network
+                print("begin to train:"+modelInputPath)
+                inputMatrix, labelMatrix = self.convertToMatrixData(data, inputNum, outputNum)
+                for i in range(iterations):
+                    sess.run(train_step, feed_dict={input: inputMatrix, label: labelMatrix})
+                    retLossValue = sess.run(lossOut, feed_dict={input: inputMatrix, label: labelMatrix})
+                    learningRate = sess.run(learning_rate, feed_dict={input: inputMatrix, label: labelMatrix})
+
+                    print("global_step:" + str(sess.run(global_step)) + "\tlossOut:" + str(
+                        retLossValue) + "\tlearningRate:" + str(learningRate) + "\tlossMul:" + str(
+                        learningRate * retLossValue))
+
+                builder = tf.saved_model.builder.SavedModelBuilder(modelOutputFile)
+                tag_string = modelOutputFile.split("\\")[-1]
+                builder.add_meta_graph_and_variables(sess, ['tag_string'])
+                builder.save();
+                print(modelOutputFile+"  model save successfully")
+                # 保存到save/model.ckpt文件
+                ##print('\033[1;32;47m',end=''
+    def test(self,data,inputNum,outputNum,modelPath,tagString):
+        with tf.Session() as sess:
+            meta_graph_def = tf.saved_model.loader.load(sess, tagString, modelPath)
+            input = sess.graph.get_tensor_by_name('input:0')
+            label=sess.graph.get_tensor_by_name('label:0');
+            mae=sess.graph.get_tensor_by_name("mae:0");
+            mape=sess.graph.get_tensor_by_name("mape:0");
+            rmse=sess.graph.get_tensor_by_name("rmse:0");
+            inputMatrix, labelMatrix = self.convertToMatrixData(data, inputNum, outputNum);
+            lossOut=sess.run([mae,mape,rmse],feed_dict={input:inputMatrix,label:labelMatrix})
+            #print("_abs_mean_loss:"+str(_abs_mean_loss))
+            return lossOut;
+    def simulink(self,inputMatrix,modelPath,tagString):
+        with tf.Session() as sess:
+            meta_graph_def = tf.saved_model.loader.load(sess, tagString, modelPath)
+            input = sess.graph.get_tensor_by_name('input')
+            predict = sess.graph.get_tensor_by_name('predict')
+            predict = sess.run([predict], feed_dict={input: inputMatrix})
+            return predict;
+
+    def readDataAndTest(self,inputNum,outputNum,testDataBasePath,modelInputBasePath):
+        filenames=os.listdir(testDataBasePath)
+        for filename in filenames:
+            modelInputPath = ""
+            testDataPath=""
+            modelInputPath=modelInputBasePath+"\\"+filename+".pd"
+            testDataPath =testDataBasePath+"\\"+filename
+            with open(testDataPath, "r") as fd:
+                csv_data = csv.reader(fd)
+                tci = [rows[1] for rows in csv_data]
+                tci = tci[1:]
+                tci = [float(num) for num in tci]
+                tag_string = modelInputPath.split("\\")[-1]
+                lossValue=self.test(tci,inputNum,outputNum,modelInputPath,['tag_string'])
+                print(filename+"(loss):"+str(lossValue))
+    def convertToMatrixData(self,data,inputNum,outputNum):
+            inputMatrix=[]
+            labelMatrix=[]
+            for i in range(len(data)-inputNum-outputNum+1):
+                inputList=data[i:i+inputNum]
+                labelList=data[i+inputNum:i+inputNum+outputNum]
+                inputList1=[]
+                for item in inputList:
+                    inputList1.append([item])
+                inputMatrix.append([inputList1])
+                labelMatrix.append(labelList)
+            return [inputMatrix,labelMatrix]
 
     def train(self,data,inputNum,outputNum,state,iterations,modelInputPath,modelOutputFile,learning_rate):
         '''
@@ -20,117 +171,111 @@ class TrafficJamPredict:
             one value
             '''
         tf.reset_default_graph()
-        batch=1
-        row=1
-        channel=1
+        batch = 1
+        row = 1
+        channel = 1
 
+        # label container
+        label = tf.placeholder(tf.float32, shape=[1, 1])
+        predictValue = []
+        # input data container
+        input = tf.placeholder(tf.float32, shape=[batch, row, inputNum, channel], name='input')
 
-        #label container
-        label=tf.placeholder(tf.float32,shape=[1,1])
-        predictValue=[]
-        #input data container
-        input=tf.placeholder(tf.float32,shape=[batch,row,inputNum,channel],name='input')
+        filterKernel = kernel.averageFilter(shape=[1, 3, 1, 1]);
 
+        # convlution
+        conv2dRel = tf.nn.conv2d(input, filter=filterKernel, strides=[1, 1, 1, 1], data_format='NHWC', padding='SAME')
 
-        filterKernel=kernel.averageFilter(shape=[1,3,1,1]);
+        # pooling
+        maxpoolRel = tf.nn.max_pool(conv2dRel, ksize=[1, 1, 3, 1], strides=[1, 1, 3, 1], padding='SAME',
+                                    data_format='NHWC')
+        deminsion = maxpoolRel.shape.as_list()
 
+        # reshape
+        maxPoolFlat = tf.reshape(maxpoolRel, shape=[1, deminsion[0] * deminsion[1] * deminsion[2] * deminsion[3]])
 
-        #convlution
-        conv2dRel=tf.nn.conv2d(input,filter=filterKernel,strides=[1,1,1,1],data_format='NHWC',padding='SAME')
+        # Hidden layer
+        Hidden = tf.layers.dense(maxPoolFlat, 30)
 
-        #pooling
-        maxpoolRel=tf.nn.max_pool(conv2dRel,ksize=[1,1,3,1],strides=[1,1,3,1],padding='SAME',data_format='NHWC')
-        deminsion=maxpoolRel.shape.as_list()
+        # output layer
+        rel = tf.layers.dense(Hidden, outputNum, activation=tf.nn.tanh)
 
+        # define the loss function
+        loss = (tf.abs(label - rel))
 
-        #reshape
-        maxPoolFlat=tf.reshape(maxpoolRel,shape=[1,deminsion[0]*deminsion[1]*deminsion[2]*deminsion[3]])
+        lossOut = tf.abs(label - rel)
+        # loss=tf.losses.mean_squared_error(labels=label,predictions=rel)
 
-        #Hidden layer
-        Hidden=tf.layers.dense(maxPoolFlat,30)
-
-
-        #output layer
-        rel=tf.layers.dense(Hidden,outputNum,activation=tf.nn.tanh)
-
-
-        #define the loss function
-        loss=(tf.abs(label-rel))
-
-        lossOut=tf.abs(label - rel)
-        #loss=tf.losses.mean_squared_error(labels=label,predictions=rel)
-
-        #set the train algorithm
+        # set the train algorithm
         global_step = tf.Variable(0)
 
         learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=len(data) / inputNum,
                                                    decay_rate=0.998,
                                                    staircase=True)
-        train_step=tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss=loss,global_step=global_step)
-        #train_step=tf.train.AdadeltaOptimizer(learning_rate=0.1).minimize(loss=loss)
+        train_step = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss=loss, global_step=global_step)
+        # train_step=tf.train.AdadeltaOptimizer(learning_rate=0.1).minimize(loss=loss)
 
-        #init all the weight value
-        init=tf.global_variables_initializer()
+        # init all the weight value
+        init = tf.global_variables_initializer()
 
-
-        #begin training process
+        # begin training process
         with tf.Session() as sess:
-            saver = tf.train.Saver(write_version=tf.train.SaverDef.V2)  #use this save the network model
+            saver = tf.train.Saver(write_version=tf.train.SaverDef.V2)  # use this save the network model
 
-                #save the data for using  tensorboard show the network structure
+            # save the data for using  tensorboard show the network structure
 
             sess.run(init)
-              # 将图形、训练过程等数据合并在一起
-            tf.summary.scalar("loss",loss[0][0])
-            tf.summary.scalar("lossOut",lossOut[0][0])
+            # 将图形、训练过程等数据合并在一起
+            tf.summary.scalar("loss", loss[0][0])
+            tf.summary.scalar("lossOut", lossOut[0][0])
             writer = tf.summary.FileWriter("G:/GraduationDesignModelData/logs/", sess.graph)
             merged = tf.summary.merge_all()
-                #restore the all kinds of network weights to the cnn network
+            # restore the all kinds of network weights to the cnn network
             if state == 0:
-                        saver_path = saver.save(sess,modelOutputFile)
-                        ##print('\033[1;32;47m',end=''
-                        # 将模型保存到save/model.ckpt文件
-                        print("\t\t\tmodel file initial in path : "+saver_path)
+                saver_path = saver.save(sess, modelOutputFile)
+                ##print('\033[1;32;47m',end=''
+                # 将模型保存到save/model.ckpt文件
+                print("\t\t\tmodel file initial in path : " + saver_path)
             ##print('\033[1;32;47m',end=''
             print("\t\t\tmodel file restore from path : " + modelInputPath)
-            saver.restore(sess=sess,save_path=modelInputPath)
-            lossValue=1
+            saver.restore(sess=sess, save_path=modelInputPath)
+            lossValue = 1
             for i in range(iterations):
-                    #input and output data example
-                    # inputData = inda.getInputData([batch, row, col, channel])
-                    # labelData = [[-1]]
-                    #compute the loss and improve the network  structure
-                    lossValueList=[]
-                    lossOutValueList=[]
-                    simulinkValueList=[]
-                    for j in range(len(data)-inputNum-outputNum+1):
-                        inputList=data[j:j+inputNum]
-                        inputData = inda.getInputData([batch, row, inputNum, channel])
-                        for jj in range(len(inputList)):
-                            inputData[0][0][jj][0]=inputList[jj]
-                        labelValue=data[j+inputNum:j+inputNum+outputNum]
-                        labelData=[labelValue]
-                        sess.run(train_step,feed_dict={input:inputData,label:labelData})
-                        lossValueList.append(sess.run(loss,feed_dict={input:inputData,label:labelData}))
-                        lossOutValueList.append(sess.run(lossOut,feed_dict={input:inputData,label:labelData}))
-                        simulinkValueList.append(sess.run(rel,feed_dict={input:inputData}))
-                        trainProcess = sess.run(merged, feed_dict={input: inputData, label: labelData})
-                        writer.add_summary(trainProcess, i*iterations+j)
+                # input and output data example
+                # inputData = inda.getInputData([batch, row, col, channel])
+                # labelData = [[-1]]
+                # compute the loss and improve the network  structure
+                lossValueList = []
+                lossOutValueList = []
+                simulinkValueList = []
+                for j in range(len(data) - inputNum - outputNum + 1):
+                    inputList = data[j:j + inputNum]
+                    inputData = inda.getInputData([batch, row, inputNum, channel])
+                    for jj in range(len(inputList)):
+                        inputData[0][0][jj][0] = inputList[jj]
+                    labelValue = data[j + inputNum:j + inputNum + outputNum]
+                    labelData = [labelValue]
+                    sess.run(train_step, feed_dict={input: inputData, label: labelData})
+                    lossValueList.append(sess.run(loss, feed_dict={input: inputData, label: labelData}))
+                    lossOutValueList.append(sess.run(lossOut, feed_dict={input: inputData, label: labelData}))
+                    simulinkValueList.append(sess.run(rel, feed_dict={input: inputData}))
+                    trainProcess = sess.run(merged, feed_dict={input: inputData, label: labelData})
+                    writer.add_summary(trainProcess, i * iterations + j)
 
-                        # print("inputData:")
-                        # print(inputList)
-                        # print("conv2d:")
-                        # print(sess.run(conv2dRel,feed_dict={input:inputData}))
-                        # print("maxPoolResult:")
-                        # print(sess.run(maxPoolFlat,feed_dict={input:inputData}))
-                        # print("loss:")
-                        # print(sess.run(loss,feed_dict={input:inputData,label:labelData}))
-                #save the network weights to file
-                    #print('\033[1;32;47m', end='')
-                    # print("\t\t\tloss   :"+str(np.average(lossValueList)))
-                    print("\t\t\tlossOut:"+str(np.average(lossOutValueList)))
-                    lossValue=np.average(lossOutValueList)
-                    #print("\t\t\tsimulinkValue:"+str(simulinkValueList[0]))
+                    # print("inputData:")
+                    # print(inputList)
+                    # print("conv2d:")
+                    # print(sess.run(conv2dRel,feed_dict={input:inputData}))
+                    # print("maxPoolResult:")
+                    # print(sess.run(maxPoolFlat,feed_dict={input:inputData}))
+                    # print("loss:")
+                    # print(sess.run(loss,feed_dict={input:inputData,label:labelData}))
+                    # save the network weights to file
+                # print('\033[1;32;47m', end='')
+                # print("\t\t\tloss   :"+str(np.average(lossValueList)))
+                print("\t\t\tlossOut:" + str(np.average(lossOutValueList)))
+                lossValue = np.average(lossOutValueList)
+                # print("\t\t\tsimulinkValue:"+str(simulinkValueList[0]))
             saver_path = saver.save(sess, modelOutputFile)  # 将模型保存到save/model.ckpt文件
             ##print('\033[1;32;47m',end=''
             print("\t\t\tModel saved in file:", saver_path)

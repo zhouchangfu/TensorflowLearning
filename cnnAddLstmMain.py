@@ -13,7 +13,7 @@ BASETRAINDATAPATH="data\\train"
 BASEMODELPATH="data\\model"
 JAVABASEMODELPATH="data\\graph"
 filenames=os.listdir(BASETRAINDATAPATH)
-iterations=1
+iterations=1000
 INPUT_NUM=500
 LSTM_CELL_NUM=2
 OUTPUT_NUM=120
@@ -43,15 +43,15 @@ OUTPUT_NUM=120
 #
 #
 #
-#
-# #############################test##################################
+
+#############################test##################################
 # obj.readDataAndTest(INPUT_NUM,LSTM_CELL_NUM,OUTPUT_NUM,"data\\test","data\\model")
 
 
 
 ##############################simulink##################################
 
-with open("data\\test\\I5-N-1205157.csv", "r") as fd:
+with open("data\\test\\SR55-N-1203254.csv", "r") as fd:
     csv_data = csv.reader(fd)
     tci = [rows[1] for rows in csv_data]
     tci = tci[1:]
@@ -63,7 +63,7 @@ with open("data\\test\\I5-N-1205157.csv", "r") as fd:
         for item in inputList:
             input.append([item])
         input=[[input]]
-        predictList=obj.simulink(input,INPUT_NUM,LSTM_CELL_NUM,OUTPUT_NUM,modelInputPath="data\\model\\I5-N-1205157.csv.ckpt")
+        predictList=obj.simulink(input,INPUT_NUM,LSTM_CELL_NUM,OUTPUT_NUM,modelInputPath="data\\model\\SR55-N-1203254.csv.ckpt")
         fig1=plt.figure("simulink")
         fig=fig1.add_subplot(111)
         x=np.linspace(-1,1,len(labelList))

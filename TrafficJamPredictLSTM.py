@@ -14,6 +14,8 @@ from tensorflow.contrib import rnn
 import tool
 #import matplotlib.pyplot as plt
 import datetime
+import os,csv
+import loss as lossObj
 
 
 class LSTM():
@@ -35,8 +37,8 @@ class LSTM():
         # rnn_cell = rnn.BasicLSTMCell(n_hidden)
 
         # generate prediction
-        x=tf.placeholder(shape=[None,inputNum],dtype=tf.float32)
-        y=tf.placeholder(shape=[None,outputNum],dtype=tf.float32)
+        x=tf.placeholder(shape=[None,inputNum],dtype=tf.float32,name="input")
+        y=tf.placeholder(shape=[None,outputNum],dtype=tf.float32,name="label")
         #x=tf.split(x,3,0)
 
         hiddenInput =x
@@ -59,9 +61,11 @@ class LSTM():
         # predict=tf.sigmoid(tf.matmul(reshapeRel,W)+B)
 
         predict=tf.layers.dense(inputs=outputs[0],units=outputNum,activation=tf.nn.sigmoid)
-
+        MAE = lossObj.Loss().mae(predict, y);
+        MAPE = lossObj.Loss().mape(predict, y);
+        RMSE = lossObj.Loss().rmse(predict, y);
         loss=tf.abs(tf.reduce_sum(tf.abs(predict-y)))
-        lossOut=tf.abs(tf.reduce_mean(tf.abs(predict-y)))
+        lossOut=tf.abs(tf.reduce_mean(tf.abs(predict-y)),name="abs_mean_loss")
 
         global_step=tf.Variable(0)
 
@@ -71,32 +75,61 @@ class LSTM():
         init=tf.global_variables_initializer()
         with tf.Session() as sess:
 
-                saver = tf.train.Saver(write_version=tf.train.SaverDef.V2)  # use this save the network model
-
-                # save the data for using  tensorboard show the network structure
-                #tf.summary.histogram("W",W)
-                tf.summary.scalar("loss",loss)
-                tf.summary.scalar("lossOut",lossOut)
-                merged=tf.summary.merge_all()
-                writer=tf.summary.FileWriter("G:/GraduationDesignModelData/logs/", sess.graph)
+                # saver = tf.train.Saver(write_version=tf.train.SaverDef.V2)  # use this save the network model
+                #
+                # # save the data for using  tensorboard show the network structure
+                # #tf.summary.histogram("W",W)
+                # tf.summary.scalar("loss",loss)
+                # tf.summary.scalar("lossOut",lossOut)
+                # merged=tf.summary.merge_all()
+                # writer=tf.summary.FileWriter("G:/GraduationDesignModelData/logs/", sess.graph)
                 sess.run(init)
 
                 # restore the all kinds of network weights to the cnn network
-                if state == 0:
-                    saver_path = saver.save(sess, modelOutputPath)
-                    ##print('\033[1;32;47m',end=''
-                    # 将模型保存到save/model.ckpt文件
-                    print("\t\t\tmodel file initial in path : " + saver_path)
-                ##print('\033[1;32;47m',end=''
-                print("\t\t\tmodel file restore from path : " + modelInputPath)
-                saver.restore(sess=sess, save_path=modelInputPath)
+                print("begin to train:" + modelInputPath)
                 retLossValue=None
                 inputMatrix,labelMatrix=self.convertToMatrixData(data,inputNum,outputNum)
                 for i in range(innerIterations):
                     sess.run(train_step,feed_dict={x:inputMatrix,y:labelMatrix})
                     retLossValue=sess.run(lossOut,feed_dict={x:inputMatrix,y:labelMatrix})
-                    print("lossOut:"+str(retLossValue))
-                return retLossValue
+                    learningRate = sess.run(learning_rate, feed_dict={x: inputMatrix, y: labelMatrix})
+                    print("global_step:" + str(sess.run(global_step)) + "\tlossOut:" + str(
+                        retLossValue) + "\tlearningRate:" + str(learningRate) + "\tlossMul:" + str(
+                        learningRate * retLossValue))
+                builder = tf.saved_model.builder.SavedModelBuilder(modelOutputPath)
+                tag_string = modelOutputPath.split("\\")[-1]
+                builder.add_meta_graph_and_variables(sess, ['tag_string'])
+                builder.save();
+                print(modelOutputPath + "  model save successfully")
+
+    def test(self,data,inputNum,outputNum,modelPath,tagString):
+        with tf.Session() as sess:
+            meta_graph_def = tf.saved_model.loader.load(sess, tagString, modelPath)
+            input = sess.graph.get_tensor_by_name('input:0')
+            label=sess.graph.get_tensor_by_name('label:0');
+            mae=sess.graph.get_tensor_by_name("mae:0");
+            mape=sess.graph.get_tensor_by_name("mape:0");
+            rmse=sess.graph.get_tensor_by_name("rmse:0");
+            inputMatrix, labelMatrix = self.convertToMatrixData(data, inputNum, outputNum);
+            lossOut=sess.run([mae,mape,rmse],feed_dict={input:inputMatrix,label:labelMatrix})
+            #print("_abs_mean_loss:"+str(_abs_mean_loss))
+            return lossOut;
+    def readDataAndTest(self,inputNum,outputNum,testDataBasePath,modelInputBasePath):
+        filenames=os.listdir(testDataBasePath)
+        for filename in filenames:
+            modelInputPath = ""
+            testDataPath=""
+            modelInputPath=modelInputBasePath+"\\"+filename+".pd"
+            testDataPath =testDataBasePath+"\\"+filename
+            with open(testDataPath, "r") as fd:
+                csv_data = csv.reader(fd)
+                tci = [rows[1] for rows in csv_data]
+                tci = tci[1:]
+                tci = [float(num) for num in tci]
+                tag_string = modelInputPath.split("\\")[-1]
+                lossValue=self.test(tci,inputNum,outputNum,modelInputPath,['tag_string'])
+                print(filename+"(loss):"+str(lossValue))
+
 
     def convertToMatrixData(self,data,inputNum,outputNum):
         inputMatrix=[]
